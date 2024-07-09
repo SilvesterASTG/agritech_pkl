@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, date
 # Konfigurasi database
 db_config = {
     'user': 'root',
-    'password': '',
+    'password': 'agritech',
     'host': 'localhost',
     'database': 'agritech'
 }
