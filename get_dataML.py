@@ -180,7 +180,7 @@ def main():
 
         # Data untuk dikirim ke API prediksi
         data = {
-            "umur_forcing": -67,
+            "umur_forcing": 0,
             "innitial": max_kadar_air,
             "avg_airhum": avg_airhum,
             "max_airhum": max_airhum,
