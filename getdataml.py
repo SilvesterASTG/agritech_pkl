@@ -118,7 +118,7 @@ def get_sensor_data(station_name, metric):
                 "airtemp": "d03845cb-513c-4157-9fcb-9326c5674ce0",
                 "airpress": "b0c04267-9c29-436f-a6e4-9b768cec4460"
             },
-            "PG3central": {
+            "PG3Central": {
                 "airhum": "7d8fd667-0ccd-4f9f-aab8-83765a34271a",
                 "windspeed": "7d8fd667-0ccd-4f9f-aab8-83765a34271z",
                 "airtemp": "8a32541e-c0d6-438d-9b8e-d892504913ff",
