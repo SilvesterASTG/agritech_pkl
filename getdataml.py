@@ -2,13 +2,12 @@ import json
 import requests
 import pandas as pd
 import mysql.connector
-from datetime import datetime, timedelta, date
-
+from datetime import datetime, timedelta
 
 # Konfigurasi database
 db_config = {
     'user': 'root',
-    'password': 'agritech',
+    'password': '',
     'host': 'localhost',
     'database': 'agritech'
 }
@@ -130,7 +129,7 @@ def get_sensor_data(station_name, metric):
                 "airtemp": "3f4b0b89-be65-44f7-a338-cc4fe4b68db6",
                 "airpress": "8cd302ee-70e2-4be6-b9ef-577403249282"
             },
-            "PG4central": {
+            "PG4Central": {
                 "airhum": "6b4c8b6f-07db-49a4-b3b7-14e15e2e6ae1",
                 "windspeed": "6b4c8b6f-07db-49a4-b3b7-14e15e2e6ae1z",
                 "airtemp": "08a26a52-3146-4b93-ae65-f27e25945643",
@@ -156,12 +155,11 @@ def get_sensor_data(station_name, metric):
              }
       
         } 
-
+    
     sensor_company_id = station_mapping[station_name].get(metric, None)
     if sensor_company_id:
         return update_and_download_data(sensor_company_id, metric)
     return 0, 0, 0
-
 
 # Fungsi utama untuk mengumpulkan dan mengirim data ke API prediksi
 def main():
@@ -179,6 +177,7 @@ def main():
         # Periksa apakah tanggalupdate lebih dari 2 hari dari hari ini
         if (end_date - tanggal_update).days > 2:
             print(f"Device {device_name} tidak diproses karena tanggalupdate lebih dari 2 hari.")
+            insert_or_update_prediction(device_name, 0.0)
             continue
         
         max_kadar_air = get_max_kadar_air(device_name, start_date_str, end_date_str)
@@ -217,68 +216,44 @@ def main():
         elif jenis_a == "liatberpasir":
             data["Tekstur1_Liat berpasir"] = 1
 
-
-        print("innitial: ",max_kadar_air)
-        print("avg_airhum: ",avg_airhum)
-        print("max_airhum: ",max_airhum)
-        print("min_airhum: ",min_airhum)
-        print("avg_airtemp: ",avg_airtemp)
-        print("max_airtemp: ",max_airtemp)
-        print("min_airtemp: ",min_airtemp)
-        print("avg_ws: ",avg_ws)
-        print("avg_airpress: ",avg_airpress)
-        print("max_airpress: ",max_airpress)
-        print("min_airpress: ",min_airpress)
-        print("Tekstur1_Lempung berdebu: ",data["Tekstur1_Lempung berdebu"])
-        print("Tekstur1_Debu: ",data["Tekstur1_Debu"])
-        print("Tekstur1_Lempung liat berpasir: ",data["Tekstur1_Lempung liat berpasir"])
-        print("Tekstur1_Liat berpasir: ",data["Tekstur1_Liat berpasir"])
-
         response = requests.post("https://api.agritechggp.site/predict", json=data)
         if response.status_code == 200:
             prediction = response.json()
-            print(prediction)
             print(f"Device: {device_name}, Prediction: {prediction['prediction']}")
-        else:
-            print(f"Failed to get prediction for device: {device_name}, status code: {response.status_code}")
-
-        # Fungsi untuk memeriksa apakah perangkat sudah ada di tabel predict
-        def device_exists(device_name):
-            connection = mysql.connector.connect(**db_config)
-            cursor = connection.cursor()
-            cursor.execute("SELECT COUNT(*) FROM predict WHERE device = %s", (device_name,))
-            count = cursor.fetchone()[0]
-            cursor.close()
-            connection.close()
-            return count > 0
-
-        # Fungsi untuk memasukkan atau mengupdate data prediksi ke dalam tabel predict
-        def insert_or_update_prediction(device_name, prediction):
-            connection = mysql.connector.connect(**db_config)
-            cursor = connection.cursor()
-
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-            if device_exists(device_name):
-                # Lakukan update data prediksi di dalam tabel
-                update_query = "UPDATE predict SET predict = %s, datetime = %s WHERE device = %s"
-                cursor.execute(update_query, (prediction, current_time, device_name))
-            else:
-                # Lakukan insert data prediksi ke dalam tabel
-                insert_query = "INSERT INTO predict (device, predict, datetime) VALUES (%s, %s, %s)"
-                cursor.execute(insert_query, (device_name, prediction, current_time))
-
-            connection.commit()
-            cursor.close()
-            connection.close()
-
-        # Di dalam loop setelah menerima prediksi dari API, masukkan atau update data ke tabel predict
-        if response.status_code == 200:
-            prediction = response.json()
             insert_or_update_prediction(device_name, prediction['prediction'])
-            print(f"Device: {device_name}, Prediction: {prediction['prediction']}")
         else:
             print(f"Failed to get prediction for device: {device_name}, status code: {response.status_code}")
+            insert_or_update_prediction(device_name, 0.0)
+
+# Fungsi untuk memeriksa apakah perangkat sudah ada di tabel predict
+def device_exists(device_name):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+    cursor.execute("SELECT COUNT(*) FROM predict WHERE device = %s", (device_name,))
+    count = cursor.fetchone()[0]
+    cursor.close()
+    connection.close()
+    return count > 0
+
+# Fungsi untuk memasukkan atau mengupdate data prediksi ke dalam tabel predict
+def insert_or_update_prediction(device_name, prediction):
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    if device_exists(device_name):
+        # Lakukan update data prediksi di dalam tabel
+        update_query = "UPDATE predict SET predict = %s, datetime = %s WHERE device = %s"
+        cursor.execute(update_query, (prediction, current_time, device_name))
+    else:
+        # Lakukan insert data prediksi ke dalam tabel
+        insert_query = "INSERT INTO predict (device, predict, datetime) VALUES (%s, %s, %s)"
+        cursor.execute(insert_query, (device_name, prediction, current_time))
+
+    connection.commit()
+    cursor.close()
+    connection.close()
 
 if __name__ == "__main__":
     main()
